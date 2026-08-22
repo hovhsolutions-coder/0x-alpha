@@ -1,0 +1,93 @@
+# 0x Alpha — Desktop Client
+
+> Independent native desktop client (Windows and Mac) for 0x Alpha, an unannounced "stealth" preview model available free on OpenRouter and OpenCode Zen. 0x Alpha has a 1.05M-token context window, up to 131K output tokens, multimodal input (text, images, video), and is purpose-built for long-horizon software engineering and terminal-agent workflows. Early community testers rate its agentic coding (multi-step refactoring, bug fixing) favorably against frontier models. The model's developer is not publicly known and this project makes no claim about its origin. The client wraps the model's preview access in a real coding workspace: one-click install, a proper interface for multi-step tasks, full use of the 1M context for whole-codebase work, a local project library, and multimodal input. Free while in preview (trial can change or end at any time); the client is designed to keep working if the model later relaunches under an official name.
+
+## What Is Publicly Known About 0x Alpha
+
+- **Context:** 1.05M tokens
+- **Output limit:** up to 131K tokens
+- **Multimodal:** text, image, video input
+- **Focus:** sustained, long-horizon software engineering; multi-step agentic coding; terminal-agent workflows
+- **Early reviews:** OpenCode community rates it favorably for agentic coding tasks (multi-step refactoring, bug fixing) against frontier models
+- **Preview terms:** requests retained for the trial but, per stated terms, not used to train the model
+- **Availability:** free preview across OpenRouter and OpenCode Zen
+- **Developer:** officially unknown / unattributed (stealth model); this project does not claim or speculate on origin
+
+## What the Client Adds
+
+- One-click signed installer (Windows .exe, Mac .dmg notarized)
+- Real coding workspace for multi-step, long-horizon tasks
+- Full use of 1.05M context (whole-codebase, not snippets)
+- Local project library (prompts, chats, code on the user's machine)
+- Multimodal input (screenshots, diagrams, video frames)
+- Designed to follow the model if it relaunches under an official name
+
+## Use Cases
+
+- Whole-codebase refactors using the 1.05M context
+- Agentic, multi-step "work through this repo" tasks
+- Large single-pass generations (up to 131K output)
+- Vision-assisted development (UI screenshots, architecture diagrams)
+
+## Preview / Honesty Notes
+
+- 0x Alpha is a stealth PREVIEW; free access can change or end at any time under the preview's terms
+- The model may later relaunch under an official name with different terms; the client is built to migrate with it
+- This project does not fabricate the model's origin or overstate benchmarks; only publicly known specs and early-review sentiment are stated
+- No claim that it "beats" any specific named model; framed as "early testers rate it favorably against frontier models"
+
+## Pricing Model
+
+- Client app: Free, MIT-licensed
+- Model access: free during the public preview on OpenRouter / OpenCode Zen
+- Subject to the preview's terms; may change or end
+
+## Platform and Distribution
+
+- **Windows:** 10 and 11, signed .exe installer
+- **macOS:** 12+, notarized universal binary (Apple Silicon + Intel)
+- **Distribution:** GitHub releases, SHA-256 checksums published
+- **Model access:** via the public preview (OpenRouter / OpenCode Zen)
+
+## Privacy and Security Model
+
+- Local project library stored on the user's machine
+- Model requests handled under the preview's own terms (retained for trial, per stated terms not used for training)
+- Signed installers with published SHA-256 checksums
+- MIT-licensed client, auditable source
+
+## Target Audience
+
+- Developers wanting to try the talked-about stealth model in a real workspace
+- Users wanting a one-click way to use 0x Alpha without API/config wrangling
+- Developers with long-horizon, whole-codebase, agentic coding tasks
+- Early adopters who follow stealth/preview model launches
+
+## Comparable Tools
+
+- **OpenRouter / OpenCode Zen** — where the preview lives; raw API / chat access, no dedicated workspace
+- **Cursor / Claude Code / Cline** — coding assistants on named models
+- Other stealth-model episodes (e.g. prior "Hunter Alpha") — same phenomenon, different model
+
+This client's value: a real one-click desktop coding workspace around 0x Alpha's preview, using its full 1M context, with a local project library, built to migrate when the model goes official — while being honest that the model's origin is unknown and the preview is temporary.
+
+## Repository
+
+- **Source:** https://github.com/0x-alpha-agent/0x-alpha
+- **Releases:** https://github.com/0x-alpha-agent/0x-alpha/releases
+- **Issues:** https://github.com/0x-alpha-agent/0x-alpha/issues
+- **License:** MIT
+
+## Common Questions
+
+**Is it free?** Yes, while in preview on OpenRouter / OpenCode Zen. Previews can change or end.
+
+**Who made 0x Alpha?** Officially unknown — it's a stealth model. This project doesn't speculate.
+
+**Is it safe to install?** Signed, notarized, checksummed, source on GitHub.
+
+**What when the preview ends / it gets a name?** The client is designed to follow the model; local library stays local.
+
+**What's it good at?** Long-horizon agentic coding, whole-repo work, big outputs; 1.05M context, 131K output.
+
+**Mac?** Yes, notarized universal binary.
