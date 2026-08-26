@@ -36,6 +36,10 @@ class ConfigManager:
             "temperature": 0.2,
             "max_tokens": 16384,
             "dark_mode": True,
+            # Cross-device chat sync (private GitHub Gist backend)
+            "sync_enabled": False,
+            "sync_github_token": "",
+            "sync_gist_id": "",
         }
 
     def load(self):
