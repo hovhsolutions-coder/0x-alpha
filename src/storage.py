@@ -90,3 +90,73 @@ class StorageManager:
             conn.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
             conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
             conn.commit()
+
+    # ------------------------------------------------------------------
+    # Sync support: full-database dump & merge for cross-device sync
+    # ------------------------------------------------------------------
+
+    def export_all(self) -> Dict[str, Any]:
+        """Dump every session and message into a JSON-serializable dict."""
+        with self._get_connection() as conn:
+            sessions = [dict(r) for r in conn.execute(
+                "SELECT id, title, created_at, workspace_path FROM sessions"
+            ).fetchall()]
+            messages = [dict(r) for r in conn.execute(
+                "SELECT session_id, role, content, attachments_json, timestamp "
+                "FROM messages ORDER BY id ASC"
+            ).fetchall()]
+        return {"sessions": sessions, "messages": messages}
+
+    def import_all(self, data: Dict[str, Any]) -> int:
+        """Merge a dump produced by export_all into the local database.
+
+        Merge strategy (single-user friendly):
+          - Sessions are inserted if missing; existing sessions keep their title.
+          - Messages are inserted only when that exact (session_id, timestamp,
+            role, content) tuple is not already present locally.
+
+        Returns the number of newly added messages.
+        """
+        added = 0
+        with self._get_connection() as conn:
+            for s in data.get("sessions", []):
+                conn.execute(
+                    "INSERT OR IGNORE INTO sessions (id, title, created_at, workspace_path) "
+                    "VALUES (?, ?, COALESCE(?, CURRENT_TIMESTAMP), ?)",
+                    (s.get("id"), s.get("title", "Untitled"), s.get("created_at"), s.get("workspace_path"))
+                )
+
+            existing = {
+                (r[0], r[1], r[2], r[3])
+                for r in conn.execute(
+                    "SELECT session_id, timestamp, role, content FROM messages"
+                ).fetchall()
+            }
+
+            for m in data.get("messages", []):
+                key = (m.get("session_id"), m.get("timestamp"), m.get("role"), m.get("content"))
+                if key in existing:
+                    continue
+                conn.execute(
+                    "INSERT INTO messages (session_id, role, content, attachments_json, timestamp) "
+                    "VALUES (?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))",
+                    (
+                        m.get("session_id"),
+                        m.get("role"),
+                        m.get("content"),
+                        m.get("attachments_json"),
+                        m.get("timestamp"),
+                    )
+                )
+                existing.add(key)
+                added += 1
+            conn.commit()
+        return added
+
+    def get_last_message_timestamp(self) -> Optional[str]:
+        """Timestamp of the most recent message, used for last-writer-wins checks."""
+        with self._get_connection() as conn:
+            row = conn.execute(
+                "SELECT MAX(timestamp) AS latest FROM messages"
+            ).fetchone()
+            return row["latest"] if row else None

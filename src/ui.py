@@ -10,6 +10,7 @@ from PySide6.QtGui import QFont
 
 from config import ConfigManager, STEALTH_MODEL_ID
 from storage import StorageManager
+from sync import GistSync
 from workspace import WorkspaceManager
 from api_client import OpenRouterClient, CompletionWorker
 
@@ -26,6 +27,11 @@ class MainWindow(QMainWindow):
         self.config = ConfigManager()
         self.storage = StorageManager()
         self.workspace = WorkspaceManager()
+        self.syncer = GistSync(
+            get_setting=self.config.get,
+            export_all=self.storage.export_all,
+            import_all=self.storage.import_all,
+        )
 
         self.current_session_id = None
         self.attached_images = []
@@ -34,6 +40,33 @@ class MainWindow(QMainWindow):
         self._init_ui()
         self._apply_dark_theme()
         self.load_sessions()
+
+        # Cross-device chat sync: pull remote chats at startup, then push
+        # local state so both devices converge on the same chat history.
+        if self.syncer.is_configured:
+            self._sync_now(initial=True)
+
+    # ------------------------------------------------------------------
+    # Sync helpers
+    # ------------------------------------------------------------------
+
+    def _sync_now(self, initial: bool = False):
+        """Pull remote chats into the local DB and push the merged result.
+
+        Because import_all merges (nothing is deleted), pulling and pushing
+        in sequence converges both devices without data loss.
+        """
+        try:
+            pulled = self.syncer.pull()
+            pushed = self.syncer.push()
+            if initial and (pulled or pushed):
+                self.load_sessions()   # refresh sidebar after merge
+                if pulled:
+                    print("Chat sync: remote chats merged.")
+            elif not (pulled or pushed):
+                print("Chat sync: skipped (offline or not configured).")
+        except Exception as e:
+            print(f"Chat sync failed: {e}")
 
     def _init_ui(self):
         main_widget = QWidget()
@@ -78,6 +111,39 @@ class MainWindow(QMainWindow):
         self.lbl_workspace_path = QLabel("No workspace loaded")
         self.lbl_workspace_path.setStyleSheet("color: #888; font-size: 11px;")
         sidebar_layout.addWidget(self.lbl_workspace_path)
+
+        # --- Chat Sync section ---
+        sidebar_layout.addWidget(QLabel("<b>Cross-device Sync</b>"))
+
+        self.chk_sync_enabled = QCheckBox("Sync chats via GitHub Gist")
+        self.chk_sync_enabled.setChecked(bool(self.config.get("sync_enabled", False)))
+        self.chk_sync_enabled.toggled.connect(self._on_sync_toggled)
+        sidebar_layout.addWidget(self.chk_sync_enabled)
+
+        self.token_input = QLineEdit()
+        self.token_input.setPlaceholderText("GitHub token (gist scope)...")
+        self.token_input.setEchoMode(QLineEdit.Password)
+        self.token_input.setText(self.config.get("sync_github_token", ""))
+        self.token_input.textChanged.connect(self._on_sync_settings_changed)
+        sidebar_layout.addWidget(self.token_input)
+
+        gist_row = QHBoxLayout()
+        self.gist_input = QLineEdit()
+        self.gist_input.setPlaceholderText("Gist ID...")
+        self.gist_input.setText(self.config.get("sync_gist_id", ""))
+        self.gist_input.textChanged.connect(self._on_sync_settings_changed)
+        gist_row.addWidget(self.gist_input)
+
+        self.btn_create_gist = QPushButton("+")
+        self.btn_create_gist.setToolTip("Create a new private sync gist")
+        self.btn_create_gist.setFixedWidth(32)
+        self.btn_create_gist.clicked.connect(self._create_sync_gist)
+        gist_row.addWidget(self.btn_create_gist)
+        sidebar_layout.addLayout(gist_row)
+
+        self.btn_sync_now = QPushButton("⟳ Sync now")
+        self.btn_sync_now.clicked.connect(lambda: self._sync_now())
+        sidebar_layout.addWidget(self.btn_sync_now)
 
         sidebar.setFixedWidth(280)
         splitter.addWidget(sidebar)
@@ -161,6 +227,31 @@ class MainWindow(QMainWindow):
 
     def _on_api_key_changed(self, text: str):
         self.config.set("api_key", text.strip())
+
+    # ------------------------------------------------------------------
+    # Sync UI handlers
+    # ------------------------------------------------------------------
+
+    def _on_sync_toggled(self, checked: bool):
+        self.config.set("sync_enabled", bool(checked))
+
+    def _on_sync_settings_changed(self, text: str):
+        self.config.set("sync_github_token", self.token_input.text().strip())
+        self.config.set("sync_gist_id", self.gist_input.text().strip())
+
+    def _create_sync_gist(self):
+        if not self.token_input.text().strip():
+            QMessageBox.warning(self, "Token Missing",
+                                "Enter a GitHub token with gist scope first.")
+            return
+        gist_id = self.syncer.create_sync_gist()
+        if gist_id:
+            self.gist_input.setText(gist_id)
+            QMessageBox.information(self, "Sync Gist Created",
+                                    f"Private sync gist created.\n\nID: {gist_id}")
+        else:
+            QMessageBox.critical(self, "Failed",
+                                 "Could not create the sync gist. Check your token.")
 
     def load_sessions(self):
         self.session_list_widget.clear()
@@ -288,3 +379,7 @@ class MainWindow(QMainWindow):
         # Extract last assistant message text and persist to storage
         full_text = self.chat_display.toPlainText().split("[0x Alpha]:\n")[-1]
         self.storage.add_message(self.current_session_id, "assistant", full_text)
+
+        # Push the updated conversation to the sync backend (best-effort)
+        if self.config.get("sync_enabled", False) and self.syncer.is_configured:
+            self._sync_now()
