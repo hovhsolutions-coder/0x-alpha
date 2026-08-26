@@ -1,5 +1,7 @@
 import uuid
 import os
+import json
+from datetime import datetime
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QListWidget,
     QTextEdit, QPushButton, QFileDialog, QLabel, QLineEdit,
@@ -62,6 +64,19 @@ class MainWindow(QMainWindow):
         new_chat_btn = QPushButton("+ New Chat")
         new_chat_btn.clicked.connect(self.create_new_session)
         sidebar_layout.addWidget(new_chat_btn)
+
+        # Chat Sync Buttons (Export / Import)
+        sync_layout = QHBoxLayout()
+        self.btn_export_chats = QPushButton("\u2b06 Export")
+        self.btn_export_chats.setToolTip("Export all chats to a portable JSON file")
+        self.btn_export_chats.clicked.connect(self.export_chats)
+        sync_layout.addWidget(self.btn_export_chats)
+
+        self.btn_import_chats = QPushButton("\u2b07 Import")
+        self.btn_import_chats.setToolTip("Merge chats from an exported JSON file (no duplicates)")
+        self.btn_import_chats.clicked.connect(self.import_chats)
+        sync_layout.addWidget(self.btn_import_chats)
+        sidebar_layout.addLayout(sync_layout)
 
         # Sessions List
         sidebar_layout.addWidget(QLabel("Recent Chats:"))
@@ -206,6 +221,66 @@ class MainWindow(QMainWindow):
         for msg in messages:
             role = "User" if msg["role"] == "user" else "0x Alpha"
             self.chat_display.append(f"<b>[{role}]</b>:\n{msg['content']}\n")
+
+    # ------------------------------------------------------------------
+    # Chat sync between devices (export / import)
+    # ------------------------------------------------------------------
+
+    def export_chats(self):
+        """Export all sessions and messages to a portable JSON backup."""
+        default_name = f"0x-alpha-chats-{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Export Chats", default_name, "JSON (*.json)"
+        )
+        if not file_path:
+            return
+
+        data = self.storage.export_all()
+        try:
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            QMessageBox.critical(self, "Export Failed", f"Could not write file:\n{e}")
+            return
+
+        session_count = len(data.get("sessions", []))
+        message_count = sum(len(s.get("messages", [])) for s in data.get("sessions", []))
+        QMessageBox.information(
+            self, "Export Complete",
+            f"Exported {session_count} chats ({message_count} messages) to:\n{file_path}\n\n"
+            "Copy this file to your other device and use Import there."
+        )
+
+    def import_chats(self):
+        """Merge sessions/messages from an exported JSON backup (idempotent)."""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Import Chats", "", "JSON (*.json)"
+        )
+        if not file_path:
+            return
+
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception as e:
+            QMessageBox.critical(self, "Import Failed", f"Could not read file:\n{e}")
+            return
+
+        try:
+            added_sessions, added_messages = self.storage.import_data(data)
+        except ValueError:
+            QMessageBox.warning(self, "Invalid File", "This does not look like a 0x Alpha chat export.")
+            return
+        except Exception as e:
+            QMessageBox.critical(self, "Import Failed", f"Something went wrong while merging:\n{e}")
+            return
+
+        self.load_sessions()
+        QMessageBox.information(
+            self, "Import Complete",
+            f"Imported {added_sessions} new chats and {added_messages} messages.\n"
+            "Existing chats were kept as-is (imports never duplicate)."
+        )
 
     def send_message(self):
         api_key = self.config.get("api_key")
